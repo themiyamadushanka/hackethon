@@ -36,18 +36,20 @@ export async function apiClient<T>(
     headers,
   });
 
-  const payload: ApiResponse<T> = await response.json().catch(() => ({
-    success: false,
-    message: 'Invalid JSON response from server',
-  }));
+  const data = await response.json().catch(() => null);
 
-  if (!response.ok || !payload.success) {
+  if (!response.ok) {
     throw new ApiError(
-      payload.message || `Request failed with status ${response.status}`,
+      data?.error || data?.message || `Request failed with status ${response.status}`,
       response.status,
-      payload.error?.details
+      data
     );
   }
 
-  return payload.data as T;
+  // Return direct json or unwrapped data
+  if (data && typeof data === 'object' && 'data' in data && data.data !== undefined) {
+    return data.data as T;
+  }
+
+  return data as T;
 }
