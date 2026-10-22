@@ -3,6 +3,7 @@ const cors = require("cors");
 
 const taskRoutes = require("./routes/taskRoutes");
 const authRoutes = require("./routes/authRoutes");
+const musicRoutes = require("./routes/musicRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,6 +17,10 @@ app.get("/", (req, res) => {
   res.send("hello world - backend is working");
 });
 
+app.get("/hi", (req, res) => {
+  res.send("hello world - backend is working");
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
@@ -24,6 +29,7 @@ app.get("/health", (req, res) => {
 // Feature routes
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/music", musicRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
