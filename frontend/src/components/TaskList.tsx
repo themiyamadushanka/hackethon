@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 
-const API_URL = 'http://localhost:5000/api/v1/tasks';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE}/api/v1/tasks`;
 
 interface Task {
   id: string;
@@ -19,17 +20,17 @@ export default function TaskList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch tasks from Express backend
+  // Fetch jobs from backend
   const fetchTasks = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await fetch(API_URL);
-      if (!res.ok) throw new Error('Failed to fetch tasks');
+      if (!res.ok) throw new Error('Failed to fetch jobs');
       const data = await res.json();
       setTasks(data);
     } catch (err: any) {
-      setError(err.message || 'Cannot connect to backend');
+      setError(err.message || 'Cannot connect to job service');
     } finally {
       setLoading(false);
     }
@@ -39,7 +40,7 @@ export default function TaskList() {
     fetchTasks();
   }, []);
 
-  // Create task
+  // Sign new job
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -50,7 +51,7 @@ export default function TaskList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description, priority: 'medium' }),
       });
-      if (!res.ok) throw new Error('Failed to create task');
+      if (!res.ok) throw new Error('Failed to sign new job');
       const newTask = await res.json();
       setTasks((prev) => [...prev, newTask]);
       setTitle('');
@@ -60,7 +61,7 @@ export default function TaskList() {
     }
   };
 
-  // Mark task done
+  // Mark job as completed
   const handleMarkDone = async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/${id}`, {
@@ -68,7 +69,7 @@ export default function TaskList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'done' }),
       });
-      if (!res.ok) throw new Error('Failed to update task');
+      if (!res.ok) throw new Error('Failed to update job status');
       const updated = await res.json();
       setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
     } catch (err: any) {
@@ -76,11 +77,11 @@ export default function TaskList() {
     }
   };
 
-  // Delete task
+  // Cancel job
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete task');
+      if (!res.ok) throw new Error('Failed to cancel job');
       setTasks((prev) => prev.filter((t) => t.id !== id));
     } catch (err: any) {
       alert(err.message);
@@ -89,16 +90,16 @@ export default function TaskList() {
 
   return (
     <div className="space-y-6" suppressHydrationWarning>
-      {/* Create Task Form */}
+      {/* Sign New Job Form */}
       <form
         onSubmit={handleAddTask}
         className="p-5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-4 shadow-sm"
       >
-        <h2 className="text-lg font-semibold">Add New Task</h2>
+        <h2 className="text-lg font-semibold">Sign New Job</h2>
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
-            placeholder="Task Title"
+            placeholder="Job Title (e.g. Electrical Repair, Site Maintenance)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="flex-1 px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -106,25 +107,25 @@ export default function TaskList() {
           />
           <input
             type="text"
-            placeholder="Description (optional)"
+            placeholder="Job Scope / Details (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="flex-1 px-3 py-2 rounded border border-zinc-300 dark:border-zinc-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm transition-colors"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-sm transition-colors whitespace-nowrap"
           >
-            Add Task
+            Sign New Job
           </button>
         </div>
       </form>
 
-      {/* Task List */}
+      {/* Active Jobs List */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Tasks ({tasks.length})</h2>
-          {loading && <span className="text-xs text-zinc-500">Loading...</span>}
+          <h2 className="text-lg font-semibold">Active Jobs ({tasks.length})</h2>
+          {loading && <span className="text-xs text-zinc-500">Loading jobs...</span>}
         </div>
 
         {error && (
@@ -135,7 +136,7 @@ export default function TaskList() {
 
         {tasks.length === 0 && !loading ? (
           <p className="text-zinc-500 text-sm py-8 text-center border border-dashed border-zinc-300 dark:border-zinc-800 rounded">
-            No tasks yet. Create one above!
+            No signed jobs yet. Sign a new job above!
           </p>
         ) : (
           <div className="space-y-3">
@@ -150,7 +151,7 @@ export default function TaskList() {
                     <p className="text-sm text-zinc-500">{task.description}</p>
                   )}
                   <span className="text-xs font-mono uppercase text-zinc-400 mt-1 inline-block">
-                    Status: {task.status}
+                    Job Status: {task.status.replace('_', ' ')}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -159,14 +160,14 @@ export default function TaskList() {
                       onClick={() => handleMarkDone(task.id)}
                       className="px-3 py-1 text-xs border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded"
                     >
-                      Done
+                      Complete Job
                     </button>
                   )}
                   <button
                     onClick={() => handleDelete(task.id)}
                     className="px-3 py-1 text-xs text-red-600 border border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-950/20 rounded"
                   >
-                    Delete
+                    Cancel Job
                   </button>
                 </div>
               </div>
