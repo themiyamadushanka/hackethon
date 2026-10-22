@@ -2,15 +2,22 @@
 let tasks = [
   {
     id: "1",
-    title: "Project Setup",
-    description: "Install dependencies and run frontend & backend",
+    title: "Project themiya",
+    description: "im working as backend developer",
     status: "closed",
     priority: "low",
   },
   {
     id: "2",
-    title: "Build Features",
-    description: "Each developer works on a separate controller & route file",
+    title: "he he edied",
+    description: "i was edited by themiya ",
+    status: "in_progress",
+    priority: "medium",
+  },
+  {
+    id: "3",
+    title: "hi hi isira",
+    description: "i was edited by themiya",
     status: "in_progress",
     priority: "medium",
   },
