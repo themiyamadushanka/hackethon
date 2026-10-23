@@ -24,6 +24,30 @@ const extractText = async (req, res) => {
   }
 };
 
+// Forward image stream to FastAPI for full analysis (OCR + AI Humanization)
+const analyzePrescription = async (req, res) => {
+  try {
+    const fastApiResponse = await fetch(`${FASTAPI_URL}/api/v1/vision/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": req.headers["content-type"],
+      },
+      body: req,
+      duplex: "half",
+    });
+
+    const data = await fastApiResponse.json();
+    return res.status(fastApiResponse.status).json(data);
+  } catch (error) {
+    console.error("[Vision Controller Analyze Error]:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Failed to connect to AI Vision Service on port 8000",
+    });
+  }
+};
+
 module.exports = {
   extractText,
+  analyzePrescription,
 };

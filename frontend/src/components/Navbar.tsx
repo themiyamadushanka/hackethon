@@ -19,6 +19,12 @@ export default function Navbar() {
           >
             🎵 Playlist
           </Link>
+          <Link
+            href="/vision-chat"
+            className="px-3 py-1.5 rounded text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors font-semibold flex items-center gap-1"
+          >
+            🩺 Vision Chat
+          </Link>
         </nav>
       </div>
       <span className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono">

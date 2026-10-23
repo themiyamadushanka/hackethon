@@ -4,9 +4,15 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+_ai_dir = Path(__file__).resolve().parent
+_env_path = _ai_dir / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path)
+else:
+    load_dotenv()
 
 from services.azure_vision import azure_vision_service
 from services.agent_service import agent_service
@@ -74,17 +80,23 @@ async def extract_text(request: Request, file: Optional[UploadFile] = File(None)
     }
 
 @app.post("/api/v1/vision/analyze")
-async def analyze_prescription(file: UploadFile = File(...)):
+async def analyze_prescription(request: Request, file: Optional[UploadFile] = File(None)):
     """
     Uploads an image, extracts text via Azure Computer Vision,
     and runs the AI Agent to humanize instructions.
+    Supports multipart form-data ('file') and raw binary image streams.
     """
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
+    image_bytes = None
 
-    image_bytes = await file.read()
+    if file is not None:
+        image_bytes = await file.read()
+    else:
+        content_type = request.headers.get("content-type", "")
+        if content_type.startswith("image/") or "octet-stream" in content_type:
+            image_bytes = await request.body()
+
     if not image_bytes:
-        raise HTTPException(status_code=400, detail="Uploaded image file is empty.")
+        raise HTTPException(status_code=400, detail="No image provided. Upload a file via multipart form-data ('file') or send image binary.")
 
     ocr_result = azure_vision_service.extract_text_from_image_bytes(image_bytes)
     if not ocr_result.get("success"):

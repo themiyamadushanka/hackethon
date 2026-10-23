@@ -1,13 +1,21 @@
 import os
 import time
 import requests
+from pathlib import Path
 from typing import Dict, Any, List
 from dotenv import load_dotenv
 
-load_dotenv()
+# Explicitly load .env from ai-service directory or current directory
+_ai_dir = Path(__file__).resolve().parent.parent
+_env_path = _ai_dir / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=_env_path)
+else:
+    load_dotenv()
 
 class AzureVisionService:
     def __init__(self):
+        # Refresh env vars on init in case dotenv was loaded
         self.endpoint = os.getenv("AZURE_VISION_ENDPOINT", "").rstrip("/")
         self.key = os.getenv("AZURE_VISION_KEY", "")
 
