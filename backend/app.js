@@ -4,6 +4,7 @@ const cors = require("cors");
 const taskRoutes = require("./routes/taskRoutes");
 const authRoutes = require("./routes/authRoutes");
 const musicRoutes = require("./routes/musicRoutes");
+const visionRoutes = require("./routes/visionRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,6 +31,7 @@ app.get("/health", (req, res) => {
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/music", musicRoutes);
+app.use("/api/v1/vision", visionRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);

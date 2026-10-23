@@ -60,4 +60,13 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-.idea/
+# Python
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+ai-service/venv/
+ai-service/.venv/
+.venv/
+venv/
+
