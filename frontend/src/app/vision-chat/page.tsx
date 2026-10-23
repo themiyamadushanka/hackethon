@@ -3,8 +3,8 @@ import Navbar from '@/components/Navbar';
 import VisionChat from '@/components/VisionChat';
 
 export const metadata = {
-  title: 'Vision Chat - Prescription AI Scanner',
-  description: 'Upload prescriptions and medical documents to extract text and dosage instructions using Azure Computer Vision.',
+  title: 'AgroVision AI - Plant Leaf Disease & Crop Health Doctor',
+  description: 'Upload crop leaf photos to detect fungal blights, rust, mildew, and get organic remedies using Azure Computer Vision.',
 };
 
 export default function VisionChatPage() {

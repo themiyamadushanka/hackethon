@@ -15,12 +15,12 @@ else:
     load_dotenv()
 
 from services.azure_vision import azure_vision_service
-from services.agent_service import agent_service
+from services.agent_service import agent_service, agricultural_agent_service
 
 app = FastAPI(
-    title="AI Prescription & Computer Vision Service",
-    description="FastAPI service for Azure Computer Vision prescription OCR and agentic humanization",
-    version="1.0.0",
+    title="AgroVision AI - Plant Leaf Disease & Crop Health Doctor",
+    description="FastAPI service for Azure Computer Vision plant leaf disease detection and agricultural AI agent guidance",
+    version="2.0.0",
 )
 
 # CORS configuration
@@ -80,10 +80,10 @@ async def extract_text(request: Request, file: Optional[UploadFile] = File(None)
     }
 
 @app.post("/api/v1/vision/analyze")
-async def analyze_prescription(request: Request, file: Optional[UploadFile] = File(None)):
+async def analyze_crop_leaf(request: Request, file: Optional[UploadFile] = File(None)):
     """
-    Uploads an image, extracts text via Azure Computer Vision,
-    and runs the AI Agent to humanize instructions.
+    Uploads a plant leaf image, extracts visual features (captions, tags, colors)
+    via Azure Computer Vision Image Analysis, and generates an Agricultural Diagnosis Report.
     Supports multipart form-data ('file') and raw binary image streams.
     """
     image_bytes = None
@@ -98,19 +98,42 @@ async def analyze_prescription(request: Request, file: Optional[UploadFile] = Fi
     if not image_bytes:
         raise HTTPException(status_code=400, detail="No image provided. Upload a file via multipart form-data ('file') or send image binary.")
 
-    ocr_result = azure_vision_service.extract_text_from_image_bytes(image_bytes)
-    if not ocr_result.get("success"):
-        raise HTTPException(status_code=502, detail=ocr_result.get("error", "Vision OCR failed"))
+    # 1. Azure Computer Vision Image Analysis (visual features, tags, captions)
+    vision_result = azure_vision_service.analyze_image_visuals(image_bytes)
+    if not vision_result.get("success"):
+        raise HTTPException(status_code=502, detail=vision_result.get("error", "Azure Computer Vision analysis failed"))
 
-    raw_text = ocr_result.get("raw_text", "")
-    agent_output = agent_service.humanize_prescription(raw_text)
+    # 2. Agricultural AI Agent Diagnosis
+    diagnosis = agricultural_agent_service.diagnose_leaf(vision_result)
+
+    caption = vision_result.get("caption", "")
+    lines = vision_result.get("lines", [])
+    raw_text = vision_result.get("raw_text", "") or caption
+
+    item_name = diagnosis.get("item_name", "Unknown Item")
 
     return {
         "success": True,
-        "mode": ocr_result.get("mode"),
+        "mode": vision_result.get("engine", "azure_vision"),
+        "item_name": item_name,
+        "caption": caption,
+        "tags": vision_result.get("tags", []),
+        "objects": vision_result.get("objects", []),
+        "dense_captions": vision_result.get("dense_captions", []),
+        "lines": lines,
         "extracted_text": raw_text,
-        "lines": ocr_result.get("lines", []),
-        "humanized": agent_output,
+        "diagnosis": diagnosis,
+        # Backward compatibility for existing UI hooks
+        "humanized": {
+            "agent_status": "ready",
+            "item_name": item_name,
+            "crop_type": diagnosis.get("crop_type"),
+            "disease_name": diagnosis.get("disease_name"),
+            "severity": diagnosis.get("severity"),
+            "patient_guidance": diagnosis.get("organic_treatment", []),
+            "empathetic_note": diagnosis.get("empathetic_note", ""),
+            "sinhala_summary": diagnosis.get("sinhala_summary", ""),
+        },
     }
 
 @app.post("/api/v1/agent/humanize")

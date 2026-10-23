@@ -21,14 +21,15 @@ export default function Navbar() {
           </Link>
           <Link
             href="/vision-chat"
-            className="px-3 py-1.5 rounded text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 transition-colors font-semibold flex items-center gap-1"
+            className="px-3 py-1.5 rounded text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors font-semibold flex items-center gap-1.5"
           >
-            🩺 Vision Chat
+            🌿 Crop Doctor (AI)
           </Link>
         </nav>
       </div>
-      <span className="text-xs px-2.5 py-1 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-mono">
-        Job Dispatch & Console
+      <span className="text-xs px-2.5 py-1 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-mono flex items-center gap-1">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+        Azure Vision Active
       </span>
     </header>
   );

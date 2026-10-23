@@ -27,6 +27,9 @@ const extractText = async (req, res) => {
 // Forward image stream to FastAPI for full analysis (OCR + AI Humanization)
 const analyzePrescription = async (req, res) => {
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const fastApiResponse = await fetch(`${FASTAPI_URL}/api/v1/vision/analyze`, {
       method: "POST",
       headers: {
@@ -34,7 +37,9 @@ const analyzePrescription = async (req, res) => {
       },
       body: req,
       duplex: "half",
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const data = await fastApiResponse.json();
     return res.status(fastApiResponse.status).json(data);
@@ -42,7 +47,7 @@ const analyzePrescription = async (req, res) => {
     console.error("[Vision Controller Analyze Error]:", error);
     return res.status(500).json({
       success: false,
-      error: "Failed to connect to AI Vision Service on port 8000",
+      error: "Failed to connect to AI Vision Service on port 8000 or request timed out",
     });
   }
 };

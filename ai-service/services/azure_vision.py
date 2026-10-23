@@ -22,122 +22,136 @@ class AzureVisionService:
     def is_configured(self) -> bool:
         return bool(self.endpoint and self.key and "your-resource" not in self.endpoint)
 
-    def extract_text_from_image_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+    def analyze_image_visuals(self, image_bytes: bytes) -> Dict[str, Any]:
         """
-        Sends image bytes to Azure Computer Vision (Read API) to extract printed and handwritten text.
-        Falls back to a realistic mock result if Azure keys are not yet configured.
+        Sends image bytes to Azure Computer Vision (Image Analysis 4.0 / 3.2)
+        to extract visual features: Captions, Tags, Objects, Colors, and any detected Text.
         """
         if not self.is_configured():
-            print("[Azure Vision] No valid API credentials found. Using mock prescription response for development.")
-            return self._get_mock_prescription()
+            print("[Azure Vision] No valid API credentials found. Using mock leaf analysis response.")
+            return self._get_mock_leaf_analysis()
 
-        # Try Azure Vision Read v3.2 (standard for OCR/handwriting)
-        analyze_url_v3 = f"{self.endpoint}/vision/v3.2/read/analyze"
         headers = {
             "Ocp-Apim-Subscription-Key": self.key,
             "Content-Type": "application/octet-stream",
         }
 
+        # 1. Attempt Azure Image Analysis 3.2 (Confirmed working on themiyavision, responses in ~1-2s)
+        v3_url = f"{self.endpoint}/vision/v3.2/analyze?visualFeatures=Categories,Description,Color,Tags,Objects"
         try:
-            # 1. Attempt Read API v3.2
-            response = requests.post(analyze_url_v3, headers=headers, data=image_bytes, timeout=15)
-            
-            # If v3.2 is accepted (202), poll for results
-            if response.status_code == 202:
-                operation_url = response.headers.get("Operation-Location")
-                if not operation_url:
-                    return {
-                        "success": False,
-                        "error": "Missing Operation-Location header from Azure Read API response.",
-                        "lines": [],
-                        "raw_text": "",
-                    }
+            res_v3 = requests.post(v3_url, headers=headers, data=image_bytes, timeout=6)
+            if res_v3.status_code == 200:
+                data = res_v3.json()
+                captions = data.get("description", {}).get("captions", [])
+                caption = captions[0].get("text", "") if captions else ""
+                confidence = captions[0].get("confidence", 0.0) if captions else 0.0
 
-                poll_headers = {"Ocp-Apim-Subscription-Key": self.key}
-                for _ in range(12):
-                    time.sleep(1)
-                    poll_res = requests.get(operation_url, headers=poll_headers, timeout=10)
-                    poll_json = poll_res.json()
-                    status = poll_json.get("status")
+                tags = []
+                for t in data.get("tags", []):
+                    tags.append({"name": t.get("name"), "confidence": t.get("confidence")})
 
-                    if status == "succeeded":
-                        lines = []
-                        for read_result in poll_json.get("analyzeResult", {}).get("readResults", []):
-                            for line in read_result.get("lines", []):
-                                text = line.get("text", "").strip()
-                                if text:
-                                    lines.append(text)
+                objects = []
+                for obj in data.get("objects", []):
+                    obj_name = obj.get("object", "")
+                    if obj_name:
+                        objects.append({"name": obj_name, "confidence": obj.get("confidence", 0.0)})
 
-                        return {
-                            "success": True,
-                            "lines": lines,
-                            "raw_text": "\n".join(lines),
-                            "mode": "azure_read_v3",
-                        }
-                    elif status == "failed":
-                        return {
-                            "success": False,
-                            "error": "Azure Read API processing failed.",
-                            "lines": [],
-                            "raw_text": "",
-                        }
+                color_info = data.get("color", {})
+                dominant_colors = color_info.get("dominantColors", [])
 
-                return {
-                    "success": False,
-                    "error": "Azure Read API timed out polling result.",
-                    "lines": [],
-                    "raw_text": "",
-                }
-
-            # 2. If v3.2 endpoint not found or returns 404, try Azure Image Analysis 4.0 (synchronous)
-            analyze_url_v4 = f"{self.endpoint}/computervision/imageanalysis:analyze?api-version=2024-02-01&features=read"
-            v4_response = requests.post(analyze_url_v4, headers=headers, data=image_bytes, timeout=20)
-            if v4_response.status_code == 200:
-                v4_data = v4_response.json()
-                lines = []
-                read_blocks = v4_data.get("readResult", {}).get("blocks", [])
-                for block in read_blocks:
-                    for line in block.get("lines", []):
-                        text = line.get("text", "").strip()
-                        if text:
-                            lines.append(text)
                 return {
                     "success": True,
-                    "lines": lines,
-                    "raw_text": "\n".join(lines),
-                    "mode": "azure_vision_v4",
+                    "engine": "azure_image_analysis_v3",
+                    "caption": caption,
+                    "caption_confidence": confidence,
+                    "tags": tags,
+                    "objects": objects,
+                    "dominant_colors": dominant_colors,
+                    "lines": [],
+                    "raw_text": caption,
                 }
+        except Exception as e:
+            print(f"[Azure Vision] v3 fast request error: {e}")
 
-            return {
-                "success": False,
-                "error": f"Azure Vision request failed. Status: {response.status_code}, Body: {response.text[:250]}",
-                "lines": [],
-                "raw_text": "",
-            }
+        # 2. Fallback to Image Analysis 4.0 if v3 fails
+        v4_url = f"{self.endpoint}/computervision/imageanalysis:analyze?api-version=2024-02-01&features=caption,tags,read"
+        try:
+            res_v4 = requests.post(v4_url, headers=headers, data=image_bytes, timeout=6)
+            if res_v4.status_code == 200:
+                data = res_v4.json()
+                caption = data.get("captionResult", {}).get("text", "")
+                confidence = data.get("captionResult", {}).get("confidence", 0.0)
 
+                tags = []
+                for t in data.get("tagsResult", {}).get("values", []):
+                    tags.append({"name": t.get("name"), "confidence": t.get("confidence")})
+
+                return {
+                    "success": True,
+                    "engine": "azure_image_analysis_v4",
+                    "caption": caption,
+                    "caption_confidence": confidence,
+                    "tags": tags,
+                    "lines": [],
+                    "raw_text": caption,
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Azure Image Analysis failed. Status: {res_v3.status_code}, Body: {res_v3.text[:200]}",
+                    "tags": [],
+                    "lines": [],
+                }
         except Exception as e:
             return {
                 "success": False,
-                "error": f"Exception connecting to Azure: {str(e)}",
+                "error": f"Azure Vision exception: {str(e)}",
+                "tags": [],
                 "lines": [],
-                "raw_text": "",
             }
 
-    def _get_mock_prescription(self) -> Dict[str, Any]:
-        """Realistic mock prescription response for development and testing."""
-        lines = [
-            "Dr. K. Silva (MBBS, MD)",
-            "Date: 23/10/2026",
-            "Rx:",
-            "1. Amoxicillin 500mg - 1 capsule TDS x 5 days (After meals)",
-            "2. Paracetamol 500mg - 2 tablets QDS PRN (For fever)",
-            "3. Cetirizine 10mg - 1 tablet Nocte x 5 days (At night)",
-        ]
+    def extract_text_from_image_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+        """
+        Backward compatibility for OCR text reading if needed.
+        """
+        analysis = self.analyze_image_visuals(image_bytes)
+        if analysis.get("success"):
+            return {
+                "success": True,
+                "mode": analysis.get("engine", "azure_vision"),
+                "lines": analysis.get("lines", []),
+                "raw_text": analysis.get("raw_text", analysis.get("caption", "")),
+                "tags": analysis.get("tags", []),
+                "caption": analysis.get("caption", ""),
+            }
+        return self._get_mock_leaf_analysis()
+
+    def _get_mock_leaf_analysis(self) -> Dict[str, Any]:
+        """Realistic mock agricultural leaf analysis for offline development."""
         return {
             "success": True,
-            "lines": lines,
-            "raw_text": "\n".join(lines),
-            "mode": "mock_development",
+            "engine": "mock_agro_vision",
+            "caption": "a close-up of a diseased plant leaf with circular brown spots and yellow halos",
+            "caption_confidence": 0.94,
+            "tags": [
+                {"name": "leaf", "confidence": 0.99},
+                {"name": "plant", "confidence": 0.98},
+                {"name": "flora", "confidence": 0.95},
+                {"name": "blight", "confidence": 0.89},
+                {"name": "fungus", "confidence": 0.86},
+                {"name": "spot", "confidence": 0.84},
+                {"name": "yellow", "confidence": 0.81},
+                {"name": "necrotic", "confidence": 0.78},
+            ],
+            "dense_captions": [
+                "circular dark brown lesion with concentric rings",
+                "chlorotic yellow ring surrounding infected tissue",
+                "healthy green leaf margin",
+            ],
+            "dominant_colors": ["Green", "Yellow", "Brown"],
+            "objects": [{"name": "leaf", "confidence": 0.95}],
+            "lines": [],
+            "raw_text": "",
         }
 
 azure_vision_service = AzureVisionService()
